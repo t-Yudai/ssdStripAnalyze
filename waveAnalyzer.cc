@@ -220,7 +220,7 @@ void waveAnalyzer(){
    tree = (TTree*)file->Get("ssd_rawdata");
    tree->SetBranchAddress("tdc", &tdc);
    //int n_entry = tree->GetEntries();
-   int n_entry = 3000;
+   int n_entry = 300;
    s_allEventID.v_eventHitID.resize(n_entry);
    vector<int> v_signal_info;
    v_signal_info.resize(3);
@@ -1112,176 +1112,48 @@ void waveAnalyzer(){
    c_b5h->Clear();
 
 
-   /*
-      c_a4v->cd();
-      for(int t_data=0; t_data < chiSquare_Thr.size()-1; t_data++){
+
+   c_a4v->cd();
+   for(int t_data=0; t_data < chiSquare_Thr.size()-1; t_data++){
 
       c_a4v->Divide(5,5);
       int canvNum=0;
       for(int plane=0; plane<n_plane; plane++){
-      for(int chip=0; chip<n_chip; chip++){
-      for(int data=0; data<m_chip[plane][chip].c_waveEvent.size(); data++){
-      double chiSquare
-      = m_chip[plane][chip].c_waveEvent.at(data).chiSquare;
-      if(canvNum<25 && chiSquare_Thr.at(t_data) < chiSquare
-      && chiSquare < chiSquare_Thr.at(t_data + 1)
-      ){
-      c_a4v->cd(canvNum+1);
-      m_chip[plane][chip].c_waveEvent.at(data).graph_wave_Error
-      -> SetMarkerColor(4);
-      m_chip[plane][chip].c_waveEvent.at(data).graph_wave_Error
-      -> SetMarkerStyle(21);
-      m_chip[plane][chip].c_waveEvent.at(data).graph_wave_Error
-      -> SetMarkerSize(0.5);
-      m_chip[plane][chip].c_waveEvent.at(data).graph_wave_Error
-      -> GetYaxis() -> SetLabelSize(0.06);
-      m_chip[plane][chip].c_waveEvent.at(data).graph_wave_Error
-      -> GetXaxis() -> SetLabelSize(0.04);
-   //m_chip[plane][chip].c_waveEvent.at(data).graph_wave_Error
-   //-> GetYaxis() -> SetTitleSize(0.1);
-   m_chip[plane][chip].c_waveEvent.at(data).graph_wave_Error->Draw("AP");
-   m_chip[plane][chip].c_waveEvent.at(data).fit_func_chip->Draw("same");
-   canvNum++;
-   }//if canvNum
-   }//for data
-   }//for chip
-   }//for plane
-   c_a4v->SaveAs(output_pdf_name_a4, "pdf");
-   c_a4v->Clear();
+         for(int chip=0; chip<n_chip; chip++){
+            for(int data=0; data<m_chip[plane][chip].c_waveEvent.size(); data++){
+               double chiSquare
+                  = m_chip[plane][chip].c_waveEvent.at(data).chiSquare;
+               if(canvNum<25 && chiSquare_Thr.at(t_data) < chiSquare
+                     && chiSquare < chiSquare_Thr.at(t_data + 1)
+                 ){
+                  c_a4v->cd(canvNum+1);
+                  m_chip[plane][chip].c_waveEvent.at(data).graph_wave_Error
+                     -> SetMarkerColor(4);
+                  m_chip[plane][chip].c_waveEvent.at(data).graph_wave_Error
+                     -> SetMarkerStyle(21);
+                  m_chip[plane][chip].c_waveEvent.at(data).graph_wave_Error
+                     -> SetMarkerSize(0.5);
+                  m_chip[plane][chip].c_waveEvent.at(data).graph_wave_Error
+                     -> GetYaxis() -> SetLabelSize(0.06);
+                  m_chip[plane][chip].c_waveEvent.at(data).graph_wave_Error
+                     -> GetXaxis() -> SetLabelSize(0.04);
+                  //m_chip[plane][chip].c_waveEvent.at(data).graph_wave_Error
+                  //-> GetYaxis() -> SetTitleSize(0.1);
+                  m_chip[plane][chip].c_waveEvent.at(data).graph_wave_Error->Draw("AP");
+                  m_chip[plane][chip].c_waveEvent.at(data).fit_func_chip->Draw("same");
+                  canvNum++;
+               }//if canvNum
+            }//for data
+         }//for chip
+      }//for plane
+      c_a4v->SaveAs(output_pdf_name_a4, "pdf");
+      c_a4v->Clear();
    }//fot t_data
-   */
+
 
    c_a4v->SaveAs(output_pdf_name_a4+"]", "pdf");
    c_b5h->SaveAs(output_pdf_name_b5+"]", "pdf");
 
-
-   //-----------------------
-
-   cerr << "MAKING ROOTFILE" << endl;
-
-   vector<int> v_hitNo;
-   vector<int> v_plane;
-   vector<int> v_chip;
-   vector<int> v_strip;
-   vector<double> v_posX;
-   vector<double> v_posZ;
-   vector<double> v_posR;
-   vector<double> v_posTHETA;
-   vector<double> v_posX_Error;
-   vector<double> v_posZ_Error;
-   vector<double> v_posR_Error;
-   vector<double> v_posTHETA_Error;
-   vector<double> v_adcMax;
-   vector<double> v_adcMax_Error;
-   vector<double> v_hitTiming;
-   vector<double> v_hitTiming_error;
-
-   TFile* TFileRootOut;
-   TTree* tree_out;
-   TFileRootOut = new TFile(output_rootfilename, "RECREATE");
-   tree_out = new TTree("ssd_hitdata", "ssd_hitdata");
-
-
-   cout << "test0" << endl;
-
-   tree_out -> Branch("hitNo", &v_hitNo);
-   tree_out -> Branch("plane", &v_plane);
-   tree_out -> Branch("chip", &v_chip);
-   tree_out -> Branch("strip", &v_strip);
-   tree_out -> Branch("posX", &v_posX);
-   tree_out -> Branch("posZ", &v_posZ);
-   tree_out -> Branch("posR", &v_posR);
-   tree_out -> Branch("posTHETA", &v_posTHETA);
-   tree_out -> Branch("posX_Error", &v_posX_Error);
-   tree_out -> Branch("posZ_Error", &v_posZ_Error);
-   tree_out -> Branch("posR_Error", &v_posR_Error);
-   tree_out -> Branch("posTHETA_Error", &v_posTHETA_Error);
-   tree_out -> Branch("adcMax", &v_adcMax);
-   tree_out -> Branch("hitTiming", &v_hitTiming);
-   tree_out -> Branch("adcMax_Error", &v_adcMax_Error);
-   tree_out -> Branch("hitTiming_Error", &v_hitTiming_error);
-
-
-
-
-
-
-
-   for(int entry=0; entry<s_allEventID.v_eventHitID.size() ;entry++){
-      for(int hitID=0; hitID<s_allEventID.v_eventHitID.at(entry).v_stripID.size(); hitID++){
-         int plane, chip, strip, orderInChip;
-         double posX, posZ, posR, posTHETA;
-         double posX_Error, posZ_Error, posR_Error, posTHETA_Error;
-         double adcMax, hitTiming;
-         double adcMax_Error, hitTiming_Error;
-
-         TVector2 tv_posDecalt;//CAUTION (0)=z, (1)=x
-
-         plane = s_allEventID.v_eventHitID.at(entry).v_stripID.at(hitID).plane;
-         chip = s_allEventID.v_eventHitID.at(entry).v_stripID.at(hitID).chip;
-         strip = s_allEventID.v_eventHitID.at(entry).v_stripID.at(hitID).strip;
-         orderInChip = s_allEventID.v_eventHitID.at(entry).v_stripID.at(hitID).orderInChip;
-         adcMax =  m_chip[plane][chip].c_waveEvent.at(orderInChip).fitted_peak_adc;
-         hitTiming =  m_chip[plane][chip].c_waveEvent.at(orderInChip).fitted_hitTiming;
-
-         adcMax_Error = m_chip[plane][chip].c_waveEvent.at(orderInChip).fitted_peak_adc_Error;
-         hitTiming_Error = m_chip[plane][chip].c_waveEvent.at(orderInChip).fitted_hitTiming_Error;
-
-         tv_posDecalt = calcPosDecalt(plane, chip, strip);
-
-         posX = tv_posDecalt.Y();
-         posZ = tv_posDecalt.X();
-         posR = tv_posDecalt.Mod();
-         posTHETA = tv_posDecalt.Phi();
-
-         posX_Error = 9999;
-         posZ_Error = 9999;
-         posR_Error = 9999;
-         posTHETA_Error = 9999;
-
-
-         v_hitNo.push_back(hitID);
-         v_plane.push_back(plane);
-         v_chip.push_back(chip);
-         v_strip.push_back(strip);
-         v_posX.push_back(posX);
-         v_posZ.push_back(posZ);
-         v_posR.push_back(posR);
-         v_posTHETA.push_back(posTHETA);
-         v_posX_Error.push_back(posX_Error);
-         v_posZ_Error.push_back(posZ_Error);
-         v_posR_Error.push_back(posR_Error);
-         v_posTHETA_Error.push_back(posTHETA_Error);
-         v_adcMax.push_back(adcMax);
-         v_adcMax_Error.push_back(adcMax_Error);
-         v_hitTiming.push_back(hitTiming);
-         v_hitTiming_error.push_back(hitTiming_Error);
-
-
-      }//for hitID
-
-      tree_out -> Fill();
-
-      v_hitNo.resize(0);
-      v_plane.resize(0);
-      v_chip.resize(0);
-      v_strip.resize(0);
-      v_posX.resize(0);
-      v_posZ.resize(0);
-      v_posR.resize(0);
-      v_posTHETA.resize(0);
-      v_posX_Error.resize(0);
-      v_posZ_Error.resize(0);
-      v_posR_Error.resize(0);
-      v_posTHETA_Error.resize(0);
-      v_adcMax.resize(0);
-      v_adcMax_Error.resize(0);
-      v_hitTiming.resize(0);
-      v_hitTiming_error.resize(0);
-
-
-   }//for entry
-   tree_out -> Write();
 
 }//waveAnalyzer
 
@@ -1621,7 +1493,7 @@ TVector2 calcPosDecalt(int plane, int chip, int strip){
    double z_min = PLACE_ZX_INSIDE[plane][1];
    double x_max = PLACE_ZX_OUTSIDE[plane][0];
    double z_max = PLACE_ZX_OUTSIDE[plane][1];
-   
+
    tv_posMin.SetY(z_min);
    tv_posMin.SetX(x_min);
    tv_posMax.SetY(z_max);
@@ -1629,7 +1501,7 @@ TVector2 calcPosDecalt(int plane, int chip, int strip){
    tv_MinToMax = tv_posMax - tv_posMin;
    //tv_MinToMax.Unit();
    tv_unit = tv_MinToMax.Unit();
-  
+
    int strip_no = chip * 128 + strip;
    tv_position = tv_posMin + (14.35 + 61.3/767.0 * (double)strip_no) * tv_unit;
    return tv_position;

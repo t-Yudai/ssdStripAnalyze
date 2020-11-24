@@ -84,6 +84,7 @@ struct _waveEvent{
 
 struct _cluster{
     vector<_waveEvent> cl_waveEvent;
+    int entry_cluster;
     int c_cluster_num;
     double strip_cluster;//adc -> a_fitParam_Error[0]/e
     double simple_strip_cluster;//adc -> adc_max
@@ -610,13 +611,9 @@ void waveAnalyzer(){
 //ADD CODE FOR CLUSTERING
 
 
-   // int uno,dos;
+   // int uno,dos,tres;
    // for(uno=0;uno<100;uno++){
-   //     std::cout << "adc=" << m_chip[0][0].c_waveEvent.at(uno).adc_max << std::endl;
-   //     std::cout << "fitParam[0]=" << m_chip[0][0].c_waveEvent.at(uno).a_fitParam_Error[0] <<std::endl;
-   //     std::cout << "fitParam[1]=" << m_chip[0][0].c_waveEvent.at(uno).a_fitParam_Error[1] <<std::endl;
-   //     std::cout << "fitParam[2]=" << m_chip[0][0].c_waveEvent.at(uno).a_fitParam_Error[2] <<std::endl;
-   //     std::cout << "adcfit=" << m_chip[0][0].c_waveEvent.at(uno).fitted_peak_adc << std::endl;
+   //     std::cout << "entry=" << m_chip[0][0].c_waveEvent.at(uno).entry << std::endl;
    // }
 
 
@@ -694,6 +691,7 @@ void waveAnalyzer(){
 			       //std::cout << "cluster_num=" << c_num << std::endl;
 			       //std::cout << "strip=" << m_chip[ariplane][arichip].c_waveEvent.at(wave_num).strip << std::endl;
 			       m_chip[ariplane][arichip].v_cluster.at(c_num).c_cluster_num = c_num;
+			       m_chip[ariplane][arichip].v_cluster.at(c_num).entry_cluster = m_chip[ariplane][arichip].c_waveEvent.at(wave_num).entry;
 			       adc_maxC += m_chip[ariplane][arichip].c_waveEvent.at(wave_num).adc_max;
 			       adc_max_fit += m_chip[ariplane][arichip].c_waveEvent.at(wave_num).fitted_peak_adc;
 			       numerator_tdcAvr += m_chip[ariplane][arichip].c_waveEvent.at(wave_num).tdc * m_chip[ariplane][arichip].c_waveEvent.at(wave_num).adc_max;
@@ -1331,41 +1329,44 @@ void waveAnalyzer(){
 
    TFile *fout = new TFile("SSDdata.root","recreate");
    TTree *out_tree = new TTree("clustertree","Cluster Tree");
-   Int_t Cluster_num,Wave_num,module,Plane,Chip;
+   Int_t Entry;
+   std::vector<Int_t> Cluster_num,Wave_num,module,Plane,Chip;
 //   TVector3 PlaneChipStrip;
 //   TVector2 XZ;
-   double Strip,DecaltX,DecaltZ;
-   Double_t ADC,TDC;
+   std::vector<Double_t> Strip,DecaltX,DecaltZ,ADC,TDC;
+
    out_tree->Branch("Cluster_num", &Cluster_num, "Cluster_num/I");
-   out_tree->Branch("Wave_num", &Wave_num, "Wave_num/I");
+   //out_tree->Branch("Wave_num", &Wave_num, "Wave_num/I");
    out_tree->Branch("Plane", &Plane,"Plane/I");
    out_tree->Branch("Chip", &Chip,"Chip/I");
    out_tree->Branch("Strip", &Strip,"Strip/D");
-   out_tree->Branch("module", &module, "module/I");
+   //out_tree->Branch("module", &module, "module/I");
    out_tree->Branch("DecaltX", &DecaltX, "DecaltX/D");
    out_tree->Branch("DecaltZ", &DecaltZ, "DecaltZ/D");
    out_tree->Branch("ADC", &ADC, "ADC/D");
    out_tree->Branch("TDC", &TDC, "TDC/D");
 
+   int CLUSTERinENTRY=0;
+   int entry_max;
+   int c_num_max;
+
    for(ariplane=0; ariplane<6; ariplane++){
        for(arichip=0; arichip<6; arichip++){
-	   cluster_num_max = m_chip[ariplane][arichip].v_cluster.size();
-	   for(c_num=0; c_num<cluster_num_max; c_num++){
-	       Cluster_num = m_chip[ariplane][arichip].v_cluster.at(c_num).c_cluster_num;
-	       Plane = ariplane;
-	       Chip = arichip;
-	       Strip = m_chip[ariplane][arichip].v_cluster.at(c_num).strip_cluster;
-//	       PlaneChipStrip.SetX((double)ariplane);
-//	       PlaneChipStrip.SetY((double)arichip);
-//	       PlaneChipStrip.SetZ(m_chip[ariplane][arichip].v_cluster.at(c_num).strip_cluster);
-	       DecaltX = calcPosDecalt((double)ariplane,(double)arichip,m_chip[ariplane][arichip].v_cluster.at(c_num).strip_cluster).X();
-	       DecaltZ = calcPosDecalt((double)ariplane,(double)arichip,m_chip[ariplane][arichip].v_cluster.at(c_num).strip_cluster).Y();
-//	       XZ.SetX(DecaltX);
-//	       XZ.SetY(DecaltZ);
-	       ADC = m_chip[ariplane][arichip].v_cluster.at(c_num).adc_max_cluster;
-	       TDC = m_chip[ariplane][arichip].v_cluster.at(c_num).tdc_cluster;
-	       out_tree->Fill();
-	   }//for c_num
+ 	   c_num_max = m_chip[ariplane][arichip].v_cluster.size();
+	   if(c_num_max!=0){
+	       	   entry_max = m_chip[ariplane][arichip].v_cluster.at(c_num_max-1).entry_cluster;
+		   for(int Entry=0; Entry<entry_max+1; Entry++){
+		       for(c_num=0; c_num<c_num_max; c_num++){
+			   if(m_chip[ariplane][arichip].v_cluster.at(c_num).entry_cluster == Entry){
+			       Cluster_num.push_back(m_chip[ariplane][arichip].v_cluster.at(c_num).c_cluster_num);
+			       //Plane.push_back(???);
+			       //Chip.push_back(???);
+			       //Strip.push_back(???);
+			   }//if entry==Entry
+		       }//for c_num
+		       out_tree->Fill();
+		   }//for Entry
+	   }//if cmax!=0
        }//for arichip
    }//for ariplane
 
@@ -1373,10 +1374,109 @@ void waveAnalyzer(){
    fout->Close();
 
 
+
+
+   // for(ariplane=0; ariplane<6; ariplane++){
+   //     for(arichip=0; arichip<6; arichip++){
+   // 	   c_num_max = m_chip[ariplane][arichip].v_cluster.size();
+   // 	   if(c_num_max != 0){
+   // 	       entry_max = m_chip[ariplane][arichip].v_cluster.at(c_num_max-1).entry_cluster;
+   // 	       std::cout << "cnummax,entrymax=" << c_num_max << "," << entry_max << std::endl;
+   // 	       for(int Entry=0; Entry<entry_max+1; Entry++){
+   // 		   for(c_num=0; c_num<c_num_max; c_num++){
+   // 		       if(m_chip[ariplane][arichip].v_cluster.at(c_num).entry_cluster == Entry){
+   // 			   CLUSTERinENTRY++;
+   // 		       }//if Entry
+   // 		   }//for c_num
+
+   // 		   Cluster_num.resize(CLUSTERinENTRY);
+   // 		   //Wave_num.resize(CLUSTERinENTRY);
+   // 		   Plane.resize(CLUSTERinENTRY);
+   // 		   Chip.resize(CLUSTERinENTRY);
+   // 		   Strip.resize(CLUSTERinENTRY);
+   // 		   //module.resize(CLUSTERinENTRY);
+   // 		   DecaltX.resize(CLUSTERinENTRY);
+   // 		   DecaltZ.resize(CLUSTERinENTRY);
+   // 		   ADC.resize(CLUSTERinENTRY);
+   // 		   TDC.resize(CLUSTERinENTRY);
+   // 		   CLUSTERinENTRY=0;//initialize
+
+
+   // 		   std::cout << "size=" << Cluster_num.size() << std::endl;
+
+   // 		   int AT=0;
+   // 		   for(c_num=0; c_num<c_num_max; c_num++){
+   // 		       if(m_chip[ariplane][arichip].v_cluster.at(c_num).entry_cluster == Entry){
+   // 			   Cluster_num.at(AT)=m_chip[ariplane][arichip].v_cluster.at(c_num).c_cluster_num;
+   // 			   //Wave_num.at(AT)=???;
+   // 			   Plane.at(AT)=ariplane;
+   // 			   Chip.at(AT)=arichip;
+   // 			   Strip.at(AT)=m_chip[ariplane][arichip].v_cluster.at(c_num).strip_cluster;
+   // 			   //module.at(AT)=???;
+   // 			   DecaltX.at(AT)=calcPosDecalt((double)ariplane,(double)arichip,m_chip[ariplane][arichip].v_cluster.at(c_num).strip_cluster).X();
+   // 			   DecaltZ.at(AT)=calcPosDecalt((double)ariplane,(double)arichip,m_chip[ariplane][arichip].v_cluster.at(c_num).strip_cluster).Y();
+   // 			   AT++;
+   // 		       }//if Entry(2kaime)
+   // 		   }//for c_num(2kaime)
+
+   // 		   out_tree->Fill();
+
+   // 	       }//for Entry
+   // 	   }//if cmax!=0
+   //     }//for arichip
+   // }//for ariplane
+
+   // out_tree->Write();
+   // fout->Close();
+
+//    for(ariplane=0; ariplane<6; ariplane++){
+//        for(arichip=0; arichip<6; arichip++){
+// 	   cluster_num_max = m_chip[ariplane][arichip].v_cluster.size();
+// 	   w_num_max = m_chip[ariplane][arichip].c_waveEvent.size();
+// 	   for(c_num=0; c_num<cluster_num_max; c_num++){
+// 	       for(int w_num=0; w_num<m_chip[ariplane][arichip].c_waveEvent.size(); w_num++){
+// 		   if(m_chip[ariplane][arichip].c_waveEvent.at(w_num).cluster_num==c_num){
+// 		       Wave_num++;
+// 		   }//if cluster_num == c_num
+// 		   for(int Entry=0; Entry<m_chip[ariplane][arichip].c_waveEvent.at(w_num_max).entry; Entry++){
+// 		       if(m_chip[ariplane][arichip].v_cluster.at(w_num).cluster_entry == Entry){
+// 		       }
+// 		   }//for Entry
+// 	       }//for w_num
+// 	       Cluster_num = m_chip[ariplane][arichip].v_cluster.at(c_num).c_cluster_num;
+// 	       Plane = ariplane;
+// 	       Chip = arichip;
+// 	       Strip = m_chip[ariplane][arichip].v_cluster.at(c_num).strip_cluster;
+// //	       PlaneChipStrip.SetX((double)ariplane);
+// //	       PlaneChipStrip.SetY((double)arichip);
+// //	       PlaneChipStrip.SetZ(m_chip[ariplane][arichip].v_cluster.at(c_num).strip_cluster);
+// 	       DecaltX = calcPosDecalt((double)ariplane,(double)arichip,m_chip[ariplane][arichip].v_cluster.at(c_num).strip_cluster).X();
+// 	       DecaltZ = calcPosDecalt((double)ariplane,(double)arichip,m_chip[ariplane][arichip].v_cluster.at(c_num).strip_cluster).Y();
+// //	       XZ.SetX(DecaltX);
+// //	       XZ.SetY(DecaltZ);
+// 	       ADC = m_chip[ariplane][arichip].v_cluster.at(c_num).adc_max_cluster;
+// 	       TDC = m_chip[ariplane][arichip].v_cluster.at(c_num).tdc_cluster;
+// 	       out_tree->Fill();
+
+// 	       Wave_num=0;//initialize
+
+// 	   }//for c_num
+//        }//for arichip
+//    }//for ariplane
+
+//   out_tree->Write();
+//   fout->Close();
+
+
 //--- end output file -------------------------------------------------
 
 
+
+
 }//waveAnalyzer
+
+
+
 
 
 

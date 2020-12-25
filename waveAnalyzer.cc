@@ -1,18 +1,19 @@
 #include <iostream>
 #include <vector>
+#include <fstream>
 
 #include "Math/Math.h"
 #include "Math/SpecFuncMathCore.h"
 
 //const string input_filename = "../../tmpdatalink/tmprootfile/run00385.root.txt";
 //const string input_filename = "../../tmpdatalink/tmprootfile/run00918.root.txt";
-const string input_filename = "../../tmpdatalink/tmprootfile/run01178.root.txt";
+const string input_filename = "../../tmpdatalink/tmprootfile/run00956.root.txt";
 const string input_param_filename = "../paramTable/fitParam.dat";
 //TString input_rootfilename = "../../tmpdatalink/tmprootfile/run00385.root";
 //TString input_rootfilename = "../../tmpdatalink/tmprootfile/run00918.root";
-TString input_rootfilename = "../../tmpdatalink/tmprootfile/run01178.root";
+TString input_rootfilename = "../../tmpdatalink/tmprootfile/run00956.root";
 //TString output_rootfilename = "../rootfile_analyzed/run00385_analyzed.root";
-TString output_rootfilename = "../rootfile_analyzed/run01178_analyzed_test.root";
+TString output_rootfilename = "../rootfile_analyzed/run00956_analyzed_test.root";
 TString output_pdf_name_a4 = "../pdf/hoge_a4_test.pdf";
 TString output_pdf_name_b5 = "../pdf/hoge_b5_test.pdf";
 const string input_filename_calib[2]
@@ -84,14 +85,16 @@ struct _waveEvent{
 
 
 struct _cluster{
-    vector<_waveEvent> cl_waveEvent;
-    int w_num;
-    int entry_cluster;
-    int c_cluster_num;
-    double strip_cluster;//adc -> a_fitParam_Error[0]/e
-    double simple_strip_cluster;//adc -> adc_max
-    double adc_max_cluster;
-    double tdc_cluster;
+   vector<_waveEvent> cl_waveEvent;
+   int w_num;
+   int entry_cluster;
+   int c_cluster_num;
+   double strip_cluster;//adc -> a_fitParam_Error[0]/e
+   double simple_strip_cluster;//adc -> adc_max
+   double adc_max_cluster;
+   double tdc_cluster;
+   double chiSquareSum;
+   double ndfSum;
 };
 
 
@@ -215,7 +218,7 @@ bool waveThreshold(vector<double>, _chip m_chip[n_plane][n_chip], int, int, int)
 int     classifyWaveType(vector<double>);
 TVector2 calcPosDecalt(double, double, double);
 
-void waveAnalyzer(){
+void waveAnalyzer_2999(){
 
    vector<_entry> v_entry;
    _allchip s_allchip;
@@ -245,7 +248,7 @@ void waveAnalyzer(){
    tree = (TTree*)file->Get("ssd_rawdata");
    tree->SetBranchAddress("tdc", &tdc);
    //int n_entry = tree->GetEntries();
-   int n_entry = 300;
+   int n_entry = 1000;
    s_allEventID.v_eventHitID.resize(n_entry);
    vector<int> v_signal_info;
    v_signal_info.resize(3);
@@ -268,8 +271,8 @@ void waveAnalyzer(){
                s_strip.v_calib_mean.resize(n_sample);
                s_strip.v_calib_stdDev.resize(n_sample);
                s_strip.v_timing_resolution.resize(n_sample);
-               s_strip.v_timing_resolution.at(sample) = 0.035 / sqrt(12);
-               s_strip.a_timing_resolution[sample] = 0.035 / sqrt(12);
+               s_strip.v_timing_resolution.at(sample) = 8.0 / sqrt(12);
+               s_strip.a_timing_resolution[sample] = 8.0 / sqrt(12);
                double mean;
                double stdDev;
                if(plane<3){
@@ -614,7 +617,10 @@ void waveAnalyzer(){
             _waveEvent s_waveEvent
                = m_chip[plane][chip].c_waveEvent.at(data);
             Int_t entry = s_waveEvent.entry;
-            v_entry.at(entry).m_chip[plane][chip].c_waveEvent.push_back(s_waveEvent);
+
+            if(fit_hitTiming > 0 && fit_peak_adc<2000){
+               v_entry.at(entry).m_chip[plane][chip].c_waveEvent.push_back(s_waveEvent);
+            }
             //--------------------------
 
          }//for data
@@ -649,15 +655,6 @@ void waveAnalyzer(){
    //ADD CODE FOR CLUSTERING
 
 
-    int uno,dos,tres;
-    for(tres=0; tres<10; tres++){
-	dos = v_entry.at(tres).m_chip[0][0].c_waveEvent.size();
-	std::cout << "dos=" << dos << std::endl;
-	for(uno=0;uno<dos;uno++){
-	    std::cout << "strip=" << v_entry.at(tres).m_chip[0][0].c_waveEvent.at(uno).strip << std::endl;
-	}
-    }
-
 
    //add cluster num
    int arientry,ariplane,arichip,ariwave,ariwavesize; //plane,chip,wave counter
@@ -665,36 +662,36 @@ void waveAnalyzer(){
    int aristrip,aristrip_next; //strip number
    int c_num; //cluster number
    for(arientry=0; arientry<n_entry; arientry++){
-       for(ariplane=0;ariplane<6;ariplane++){
-	   for(arichip=0;arichip<6;arichip++){
-	       ariwavesize = v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.size();
-	       c_num = 0;
+      for(ariplane=0;ariplane<6;ariplane++){
+         for(arichip=0;arichip<6;arichip++){
+            ariwavesize = v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.size();
+            c_num = 0;
 
-	       for(ariwave=0;ariwave<ariwavesize-1;ariwave++){
-		   //arientry = m_chip[ariplane][arichip].c_waveEvent.at(ariwave).entry;
-		   aristrip = v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(ariwave).strip;
-		   aristrip_next = v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(ariwave+1).strip;
+            for(ariwave=0;ariwave<ariwavesize-1;ariwave++){
+               //arientry = m_chip[ariplane][arichip].c_waveEvent.at(ariwave).entry;
+               aristrip = v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(ariwave).strip;
+               aristrip_next = v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(ariwave+1).strip;
 
-		   if(!(ariwave == ariwavesize-2)){
-		       v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(ariwave).cluster_num = c_num;
-		       if(!((aristrip+1) == aristrip_next)){
-			   c_num++;
-		       }
-		   }
-		   else if(ariwave == ariwavesize-2){
-		       v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(ariwave).cluster_num = c_num;
-		       if((aristrip+1) == aristrip_next){
-			   v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(ariwave+1).cluster_num = c_num;
-		       }
-		       else{
-			   v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(ariwave+1).cluster_num = c_num+1;
-		       }
-		   }
+               if(!(ariwave == ariwavesize-2)){
+                  v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(ariwave).cluster_num = c_num;
+                  if(!((aristrip+1) == aristrip_next)){
+                     c_num++;
+                  }
+               }
+               else if(ariwave == ariwavesize-2){
+                  v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(ariwave).cluster_num = c_num;
+                  if((aristrip+1) == aristrip_next){
+                     v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(ariwave+1).cluster_num = c_num;
+                  }
+                  else{
+                     v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(ariwave+1).cluster_num = c_num+1;
+                  }
+               }
 
 
-	       }//for ariwave
-	   }//for arichip
-       }//for ariplane
+            }//for ariwave
+         }//for arichip
+      }//for ariplane
    }//for arientry
 
 
@@ -702,63 +699,81 @@ void waveAnalyzer(){
    int wave_num;
    int cl_wave_num=0;
    int wave_num_max=0;
-   int cluster_num_max=0;
+   int cluster_num_max=-1;
    double adc_maxC=0;
    double adc_max_fit=0;
    int numerator_tdcAvr=0;
    int simplenumerator_stripAvr=0;
    double numerator_stripAvr=0;
-   c_num=0;
+   double numerator_chiSquareSum=0;
+   double numerator_ndfSum=0;
+   int cl_num = 0;
+   //   std::cout << "entry " << "cnum " << "plane " << "chip " << std::endl;
 
    for(arientry=0; arientry<n_entry; arientry++){
-       for(ariplane=0;ariplane<6;ariplane++){
-	   for(arichip=0;arichip<6;arichip++){
-	       wave_num_max = v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.size();
-	       //std::cout << "plane=" << ariplane << std::endl;
-	       //std::cout << "chip=" << arichip << std::endl;
-	       // std::cout << "wavemax=" << wave_num_max << std::endl;
-	       if(!(wave_num_max == 0)){
-		   cluster_num_max = v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(wave_num_max-1).cluster_num;
-		   //  std::cout << "cmax=" << cluster_num_max << std::endl;
+      for(ariplane=0;ariplane<6;ariplane++){
+         for(arichip=0;arichip<6;arichip++){
+            wave_num_max = v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.size();
+            if(wave_num_max==0){
+               cluster_num_max=-1;
+            }
+            else{
+               cluster_num_max = v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(wave_num_max-1).cluster_num;
 
-		   //adc,tdc,strip clusterize
-		   v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.resize(cluster_num_max);
-		   // if(!(cluster_num_max == 0)){
-		   for(c_num=0;c_num<cluster_num_max;c_num++){
-		       for(wave_num=0;wave_num<wave_num_max;wave_num++){
-			   if(v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(wave_num).cluster_num==c_num){
-			       v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(c_num).w_num++;
-			       v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(c_num).c_cluster_num = c_num;
-			       v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(c_num).entry_cluster = v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(wave_num).entry;
-			       adc_maxC += v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(wave_num).adc_max;
-			       adc_max_fit += v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(wave_num).fitted_peak_adc;
-			       numerator_tdcAvr += v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(wave_num).tdc * m_chip[ariplane][arichip].c_waveEvent.at(wave_num).adc_max;
-			       simplenumerator_stripAvr += v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(wave_num).strip * m_chip[ariplane][arichip].c_waveEvent.at(wave_num).adc_max;
-			       numerator_stripAvr += v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(wave_num).strip * m_chip[ariplane][arichip].c_waveEvent.at(wave_num).fitted_peak_adc;
-			       cl_wave_num++;
-			       v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(c_num).cl_waveEvent.resize(cl_wave_num);
-			       v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(c_num).cl_waveEvent.at(cl_wave_num-1)=m_chip[ariplane][arichip].c_waveEvent.at(wave_num);
-			   }//if c_num
-			   cl_wave_num=0;//initialize
-		       }//for wave_num
-		       v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(c_num).adc_max_cluster = adc_maxC;
-		       if(!(adc_maxC==0)){
-			   v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(c_num).tdc_cluster = numerator_tdcAvr / adc_maxC;
-			   v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(c_num).simple_strip_cluster = simplenumerator_stripAvr / adc_maxC;
-			   v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(c_num).strip_cluster = numerator_stripAvr / adc_max_fit;
-		       }//if adcmax !=0
-		       else{
-			   std::cout << "error! adc = 0" << std::endl;
-		       }
-		       adc_maxC=0;//initialize adc_maxC
-		       numerator_tdcAvr=0;//initialize numerator
-		       simplenumerator_stripAvr=0;//initialize numerator
-		       numerator_stripAvr=0;//initialize numerator
-		       adc_max_fit=0;//initialize
-		   }//for c_num
-	       }//if wave num !=0
-	   }//arichip
-       }//ariplane
+               //adc,tdc,strip clusterize
+               v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.resize(cluster_num_max+1);
+
+               for(cl_num=0;cl_num<cluster_num_max+1;cl_num++){
+                  for(wave_num=0;wave_num<wave_num_max;wave_num++){
+                     if(v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(wave_num).cluster_num==cl_num){
+                        v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(cl_num).w_num++;
+                        v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(cl_num).c_cluster_num = c_num;
+                        v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(cl_num).entry_cluster = v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(wave_num).entry;
+                        //adc_maxC += v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(wave_num).adc_max;
+                        adc_maxC += v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(wave_num).fitted_peak_adc;
+                        adc_max_fit += v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(wave_num).fitted_peak_adc;
+                        //numerator_tdcAvr += v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(wave_num).tdc * v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(wave_num).adc_max;
+                        numerator_chiSquareSum += v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(wave_num).chiSquare;
+                        numerator_ndfSum += v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(wave_num).ndf;
+                        numerator_tdcAvr += v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(wave_num).fitted_hitTiming * v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(wave_num).adc_max;
+                        //cout << "1 " << v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(wave_num).adc_max << endl;
+                        simplenumerator_stripAvr += v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(wave_num).strip * v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(wave_num).adc_max;
+                        numerator_stripAvr += v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(wave_num).strip * v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(wave_num).fitted_peak_adc;
+                        cl_wave_num++;
+                        v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(cl_num).cl_waveEvent.resize(cl_wave_num);
+                        v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(cl_num).cl_waveEvent.at(cl_wave_num-1)=m_chip[ariplane][arichip].c_waveEvent.at(wave_num);
+                     }//if cl_num
+                     cl_wave_num=0;//initialize
+                  }//for wave_num
+                  v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(cl_num).adc_max_cluster = adc_maxC;
+                  if(!(adc_maxC==0)){
+                     //			   std::cout << "e,p,c=" << arientry << ariplane << arichip << " " << "tdc_numerator=" << numerator_tdcAvr << " " << "adc_sum=" << adc_maxC << std::endl;
+                     v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(cl_num).tdc_cluster = numerator_tdcAvr / (Double_t)adc_maxC;
+                     v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(cl_num).chiSquareSum = numerator_chiSquareSum;
+                     v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(cl_num).ndfSum = numerator_ndfSum;
+                     
+                     //cout << v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(cl_num).tdc_cluster << endl;
+                     v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(cl_num).simple_strip_cluster = simplenumerator_stripAvr / adc_maxC;
+                     v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(cl_num).strip_cluster = numerator_stripAvr / adc_max_fit;
+                  }//if adcmax !=0
+                  else{
+                     std::cout << "error! adc = 0" << std::endl;
+                  }
+                  adc_maxC=0;//initialize adc_maxC
+                  numerator_tdcAvr=0;//initialize numerator
+                  simplenumerator_stripAvr=0;//initialize numerator
+                  numerator_stripAvr=0;//initialize numerator
+                  numerator_chiSquareSum=0;
+                  numerator_ndfSum=0;
+                  adc_max_fit=0;//initialize
+
+                  //std::cout << arientry << " " << v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(c_num).c_cluster_num << " " << ariplane << " " << arichip << std::endl;
+
+
+               }//for cl_num
+            }//if wave num !=0(else)
+         }//arichip
+      }//ariplane
    }//for arientry
 
 
@@ -839,10 +854,10 @@ void waveAnalyzer(){
 
 
    //TCanvas *c1 = new TCanvas("c1", "My Canvas", 0, 0, 596, 804);
-   TCanvas *c_a4v = new TCanvas("c_a4v", "My Canvas a4v", 0, 0, 596, 804);
-   TCanvas *c_a4h = new TCanvas("c_a4h", "My Canvas a4h", 0, 0, 804, 596);
-   TCanvas *c_b5v = new TCanvas("c_b5v", "My Canvas b5v", 0, 0, 512, 728);
-   TCanvas *c_b5h = new TCanvas("c_b5h", "My Canvas b5h", 0, 0, 728, 512);
+   //TCanvas *c_a4v = new TCanvas("c_a4v", "My Canvas a4v", 0, 0, 596, 804);
+   //TCanvas *c_a4h = new TCanvas("c_a4h", "My Canvas a4h", 0, 0, 804, 596);
+   //TCanvas *c_b5v = new TCanvas("c_b5v", "My Canvas b5v", 0, 0, 512, 728);
+   //TCanvas *c_b5h = new TCanvas("c_b5h", "My Canvas b5h", 0, 0, 728, 512);
 
 
    /*
@@ -1085,76 +1100,76 @@ void waveAnalyzer(){
       }//for hitNo
       }//for entry
       */
-
-   vector<double> chiSquare_Thr = {0, 15, 30, 45, 60, 75, 90, 120, 999};
-
-
-   c_a4v->SaveAs(output_pdf_name_a4+"[", "pdf");
-   c_b5h->SaveAs(output_pdf_name_b5+"[", "pdf");
+   /*
+      vector<double> chiSquare_Thr = {0, 15, 30, 45, 60, 75, 90, 120, 999};
 
 
+      c_a4v->SaveAs(output_pdf_name_a4+"[", "pdf");
+      c_b5h->SaveAs(output_pdf_name_b5+"[", "pdf");
 
-   c_b5h->cd();
-   s_allchip.h_chi_square
+
+
+      c_b5h->cd();
+      s_allchip.h_chi_square
       = new TH1D("chiSquare", "chiSquare", 60, 0, 30);
-   for(int plane=0; plane<n_plane; plane++){
+      for(int plane=0; plane<n_plane; plane++){
       for(int chip=0; chip<n_chip; chip++){
-         for(int data=0; data<m_chip[plane][chip].c_waveEvent.size(); data++){
-            s_allchip.h_chi_square
-               -> Fill(m_chip[plane][chip].c_waveEvent.at(data).chiSquare);
-         }//for data
+      for(int data=0; data<m_chip[plane][chip].c_waveEvent.size(); data++){
+      s_allchip.h_chi_square
+      -> Fill(m_chip[plane][chip].c_waveEvent.at(data).chiSquare);
+      }//for data
       }//for chip
-   }//for plane
+      }//for plane
 
-   s_allchip.h_chi_square -> SetTitle("Fitting #chi^{2}");
-   s_allchip.h_chi_square -> GetXaxis() -> SetTitle("#chi^{2}");
-   s_allchip.h_chi_square -> GetYaxis() -> SetTitle("NumOfEvents");
-   s_allchip.h_chi_square -> Draw();
-   c_b5h->SaveAs(output_pdf_name_b5, "pdf");
-   c_b5h->Clear();
+      s_allchip.h_chi_square -> SetTitle("Fitting #chi^{2}");
+      s_allchip.h_chi_square -> GetXaxis() -> SetTitle("#chi^{2}");
+      s_allchip.h_chi_square -> GetYaxis() -> SetTitle("NumOfEvents");
+      s_allchip.h_chi_square -> Draw();
+      c_b5h->SaveAs(output_pdf_name_b5, "pdf");
+      c_b5h->Clear();
 
 
 
-   c_b5h->cd();
+      c_b5h->cd();
 
-   s_allchip.h_chi_square_over_ndf
+      s_allchip.h_chi_square_over_ndf
       = new TH1D("chiSquare/ndf", "chiSquare/ndf", 45, 0, 15);
-   for(int plane=0; plane<n_plane; plane++){
+      for(int plane=0; plane<n_plane; plane++){
       for(int chip=0; chip<n_chip; chip++){
-         for(int data=0; data<m_chip[plane][chip].c_waveEvent.size(); data++){
-            s_allchip.h_chi_square_over_ndf
-               -> Fill(m_chip[plane][chip].c_waveEvent.at(data).chiSquare_over_ndf);
-         }//for data
+      for(int data=0; data<m_chip[plane][chip].c_waveEvent.size(); data++){
+      s_allchip.h_chi_square_over_ndf
+      -> Fill(m_chip[plane][chip].c_waveEvent.at(data).chiSquare_over_ndf);
+      }//for data
       }//for chip
-   }//for plane
+      }//for plane
 
-   s_allchip.h_chi_square_over_ndf -> SetTitle("Fitting #chi^{2}/ndf");
-   s_allchip.h_chi_square_over_ndf -> GetXaxis() -> SetTitle("#chi^{2}/ndf");
-   s_allchip.h_chi_square_over_ndf -> GetYaxis() -> SetTitle("NumOfEvents");
-   s_allchip.h_chi_square_over_ndf -> Draw();
-   c_b5h->SaveAs(output_pdf_name_b5, "pdf");
-   c_b5h->Clear();
-
-
+      s_allchip.h_chi_square_over_ndf -> SetTitle("Fitting #chi^{2}/ndf");
+      s_allchip.h_chi_square_over_ndf -> GetXaxis() -> SetTitle("#chi^{2}/ndf");
+      s_allchip.h_chi_square_over_ndf -> GetYaxis() -> SetTitle("NumOfEvents");
+      s_allchip.h_chi_square_over_ndf -> Draw();
+      c_b5h->SaveAs(output_pdf_name_b5, "pdf");
+      c_b5h->Clear();
 
 
-   c_b5h->cd();
-   s_allchip.h_chiSquare_vs_waveHeight
+
+
+      c_b5h->cd();
+      s_allchip.h_chiSquare_vs_waveHeight
       = new TH2D("chiSquare vs waveHeight", "chiSquare vs waveHeight", 24, 0, 12, 30, 20, 150);
 
-   for(int plane=0; plane<n_plane; plane++){
+      for(int plane=0; plane<n_plane; plane++){
       for(int chip=0; chip<n_chip; chip++){
-         for(int data=0; data<m_chip[plane][chip].c_waveEvent.size(); data++){
-            double chiSquare
-               = m_chip[plane][chip].c_waveEvent.at(data).chiSquare;
-            double waveHeight
-               = m_chip[plane][chip].c_waveEvent.at(data).waveHeight;
-            s_allchip.h_chiSquare_vs_waveHeight
-               -> Fill(chiSquare, waveHeight);
-         }//for data
+      for(int data=0; data<m_chip[plane][chip].c_waveEvent.size(); data++){
+      double chiSquare
+      = m_chip[plane][chip].c_waveEvent.at(data).chiSquare;
+      double waveHeight
+      = m_chip[plane][chip].c_waveEvent.at(data).waveHeight;
+      s_allchip.h_chiSquare_vs_waveHeight
+      -> Fill(chiSquare, waveHeight);
+      }//for data
       }//for chip
-   }//for plane
-   s_allchip.h_chiSquare_vs_waveHeight
+      }//for plane
+      s_allchip.h_chiSquare_vs_waveHeight
       -> GetXaxis() -> SetTitle("#chi^{2}");
    s_allchip.h_chiSquare_vs_waveHeight
       -> GetYaxis() -> SetTitle("waveHeight(adc)");
@@ -1346,20 +1361,46 @@ void waveAnalyzer(){
    c_b5h->SaveAs(output_pdf_name_b5+"]", "pdf");
 
 
+   */
+
+      //--- output file -----------------------------------------------------
+      /*
+      //for debug
+      int ent,clu,wav,pla,cp,str,ad,td;
+
+      ofstream outputfile("rawdata.dat");
+      outputfile << "entry" << " " << "cluster_num" << " " << "wave_num" << " " << "plane" << " " << "chip" << " " << "strip" << " " << "adc" << " " << "tdc" << std::endl;
+      for(arientry=0; arientry<300; arientry++){
+      for(ariplane=0; ariplane<6; ariplane++){
+      for(arichip=0; arichip<6; arichip++){
+      for(ariwave=0; ariwave<v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.size(); ariwave++){
+      ent=arientry;
+      clu=v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(ariwave).cluster_num;
+      wav=ariwave;
+      pla=ariplane;
+      cp=arichip;
+      str=v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(ariwave).strip;
+      ad=v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(ariwave).adc_max;
+      td=v_entry.at(arientry).m_chip[ariplane][arichip].c_waveEvent.at(ariwave).tdc;
+
+      outputfile << ent << " " << clu << " " << wav <<  " " << pla << " " << cp << " " << str << " " << ad << " " << td << std::endl;
+      }
+      }
+      }
+      }
+      */
 
 
-   //--- output file -----------------------------------------------------
-
-   TFile *fout = new TFile("SSDdata.root","recreate");
+      TFile *fout = new TFile("SSDdata2999.root","recreate");
    TTree *out_tree = new TTree("tree","Cluster Tree");
    Int_t Entry;
-   std::vector<Int_t> Cluster_num,Wave_num,module,Plane,Chip;
+   std::vector<Int_t> Cluster_num,Cluster_size,module,Plane,Chip;
    //   TVector3 PlaneChipStrip;
    //   TVector2 XZ;
-   std::vector<Double_t> Strip,DecaltX,DecaltZ,ADC,TDC;
+   std::vector<Double_t> Strip,DecaltX,DecaltZ,ADC,TDC,chiSquareSum,ndfSum;
 
    out_tree->Branch("Cluster_num", &Cluster_num);
-   out_tree->Branch("Wave_num", &Wave_num);
+   out_tree->Branch("Cluster_size", &Cluster_size);
    out_tree->Branch("Plane", &Plane);
    out_tree->Branch("Chip", &Chip);
    out_tree->Branch("Strip", &Strip);
@@ -1368,6 +1409,8 @@ void waveAnalyzer(){
    out_tree->Branch("DecaltZ", &DecaltZ);
    out_tree->Branch("ADC", &ADC);
    out_tree->Branch("TDC", &TDC);
+   out_tree->Branch("chiSquareSum", &chiSquareSum);
+   out_tree->Branch("ndfSum", &ndfSum);
 
    int CLUSTERinENTRY=0;
    int entry_max;
@@ -1376,48 +1419,51 @@ void waveAnalyzer(){
    int c_num_entry=0;
 
    for(arientry=0; arientry<n_entry; arientry++){
-       for(ariplane=0; ariplane<6; ariplane++){
-	   for(arichip=0; arichip<6; arichip++){
-	       c_num_max = v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.size();
-	       for(c_num=0; c_num<c_num_max; c_num++){
-		   Cluster_num.push_back(c_num_entry);
-		   Wave_num.push_back(v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(c_num).w_num);
-		   Plane.push_back(ariplane);
-		   Chip.push_back(arichip);
-		   Strip.push_back(v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(c_num).strip_cluster);
-		   ADC.push_back(v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(c_num).adc_max_cluster);
-		   TDC.push_back(v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(c_num).tdc_cluster);
-		   DecaltX.push_back(calcPosDecalt((double)ariplane,(double)arichip,v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(c_num).strip_cluster).X());
-		   DecaltZ.push_back(calcPosDecalt((double)ariplane,(double)arichip,v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(c_num).strip_cluster).Y());
-/*
-		   std::cout << "entry=" << arientry;
-		   std::cout << " c_num=" << Cluster_num.at(c_counter);
-		   std::cout << " plane=" << Plane.at(c_counter);
-		   std::cout << " chip=" << Chip.at(c_counter) << std::endl;
-*/
-		   //Strip.push_back(???);
-		   c_num_entry++;
-		   c_counter++;
-	       }//for c_num
-	   }//for arichip
-       }//for ariplane
-       out_tree->Fill();
-/*
-       std::cout << "entry=" << arientry << std::endl;
-       for(int uno=0; uno<ADC.size(); uno++){
-	   std::cout << Cluster_num.at(uno) << " " << Wave_num.at(uno) << " " << Plane.at(uno) << " " << Chip.at(uno) << " " << Strip.at(uno) << " " << ADC.at(uno) << " " << TDC.at(uno) << " " << DecaltX.at(uno) << " " << DecaltZ.at(uno) << std::endl;
-       }
-*/
-       c_num_entry=0;//initialize
-       Cluster_num.clear();
-       Wave_num.clear();
-       Plane.clear();
-       Chip.clear();
-       Strip.clear();
-       ADC.clear();
-       TDC.clear();
-       DecaltX.clear();
-       DecaltZ.clear();
+      for(ariplane=0; ariplane<6; ariplane++){
+         for(arichip=0; arichip<6; arichip++){
+            c_num_max = v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.size();
+            for(c_num=0; c_num<c_num_max; c_num++){
+               Cluster_num.push_back(c_num_entry);
+               Cluster_size.push_back(v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(c_num).w_num);
+               Plane.push_back(ariplane);
+               Chip.push_back(arichip);
+               Strip.push_back(v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(c_num).strip_cluster);
+               ADC.push_back(v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(c_num).adc_max_cluster);
+               TDC.push_back(v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(c_num).tdc_cluster);
+               cout << v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(c_num).tdc_cluster << endl;
+               DecaltX.push_back(calcPosDecalt((double)ariplane,(double)arichip,v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(c_num).strip_cluster).X());
+               DecaltZ.push_back(calcPosDecalt((double)ariplane,(double)arichip,v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(c_num).strip_cluster).Y());
+               chiSquareSum.push_back(v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(c_num).chiSquareSum);
+               ndfSum.push_back(v_entry.at(arientry).m_chip[ariplane][arichip].v_cluster.at(c_num).ndfSum);
+               /*
+                  std::cout << "entry=" << arientry;
+                  std::cout << " c_num=" << Cluster_num.at(c_counter);
+                  std::cout << " plane=" << Plane.at(c_counter);
+                  std::cout << " chip=" << Chip.at(c_counter) << std::endl;
+                  */
+               //Strip.push_back(???);
+               c_num_entry++;
+               c_counter++;
+            }//for c_num
+         }//for arichip
+      }//for ariplane
+      out_tree->Fill();
+      /*
+         std::cout << "entry=" << arientry << std::endl;
+         for(int uno=0; uno<ADC.size(); uno++){
+         std::cout << Cluster_num.at(uno) << " " << Wave_num.at(uno) << " " << Plane.at(uno) << " " << Chip.at(uno) << " " << Strip.at(uno) << " " << ADC.at(uno) << " " << TDC.at(uno) << " " << DecaltX.at(uno) << " " << DecaltZ.at(uno) << std::endl;
+         }
+         */
+      c_num_entry=0;//initialize
+      Cluster_num.clear();
+      Cluster_size.clear();
+      Plane.clear();
+      Chip.clear();
+      Strip.clear();
+      ADC.clear();
+      TDC.clear();
+      DecaltX.clear();
+      DecaltZ.clear();
    }//for arientry
 
    out_tree->Write();
